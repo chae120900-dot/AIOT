@@ -1,0 +1,28 @@
+from gpiozero import MotionSensor  # gpiozero 라이브러리에서 PIR 센서 제어를 위한 MotionSensor 클래스를 가져옴
+import time                        # 시간 지연(sleep) 기능을 사용하기 위해 time 라이브러리를 가져옴
+from picamera2 import Picamera2    # Raspberry Pi Camera Module 3 등을 제어하기 위한 Picamera2 클래스를 가져옴
+import datetime                    # 파일명에 사용할 현재 날짜와 시간을 구하기 위해 datetime 라이브러리를 가져옴
+
+pirPin = MotionSensor(16)          # GPIO 16번 핀을 PIR 모션 센서 입력 핀으로 설정하여 객체 생성
+
+picam2 = Picamera2()               # Picamera2 객체를 생성하여 카메라 제어 준비
+camera_config = picam2.create_preview_configuration() # 카메라 미리보기 및 기본 설정을 위한 구성 생성
+picam2.configure(camera_config)    # 생성한 구성을 카메라 설정에 적용
+picam2.start()                     # 카메라를 활성화하여 촬영 준비 상태로 진입
+
+try:                               # 예외 처리를 위한 try 블록 시작
+    while True:                    # 프로그램이 종료될 때까지 무한 반복 수행
+        try:                       # 촬영 및 센서 감지 과정에서의 오류 처리를 위한 내부 try 블록
+            sensorValue = pirPin.value  # PIR 센서로부터 현재 값(움직임 감지 여부)을 읽어 변수에 저장
+            if sensorValue == 1:    # 센서 값이 1이면(움직임이 감지되면) 아래 코드 실행
+                now = datetime.datetime.now() # 현재 시스템의 정확한 날짜와 시간을 가져옴
+                print(now)          # 감지된 시각을 터미널 콘솔에 출력하여 확인
+                fileName = now.strftime('%Y-%m-%d %H:%M:%S') # 시간을 '연-월-일 시:분:초' 형식의 문자열로 변환
+                picam2.capture_file(fileName + '.jpg') # 변환된 시간을 파일명으로 하여 JPG 사진 촬영 및 저장
+                time.sleep(0.5)     # 0.5초 동안 대기 (너무 연속적으로 많은 사진이 찍히는 것을 방지)
+        
+        except:                    # 사진 촬영이나 센서 읽기 중 오류 발생 시
+            pass                   # 오류를 무시하고 다음 루프로 넘어감(프로그램 중단 방지)
+
+except KeyboardInterrupt:          # 사용자가 키보드로 Ctrl+C를 입력하여 프로그램을 강제 종료했을 때
+    pass                           # 무한 루프를 빠져나오며 안전하게 프로그램을 종료함
