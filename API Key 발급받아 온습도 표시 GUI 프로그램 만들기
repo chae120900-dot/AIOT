@@ -1,0 +1,46 @@
+import urllib.request  # 웹 데이터 요청에 필요한 라이브러리 임포트
+import json            # 받은 데이터를 처리하기 편한 JSON으로 변환
+import tkinter         # GUI 화면 구성을 위한 라이브러리 사용
+import tkinter.font    # 출력 화면의 폰트 설정을 위해 가져옴
+
+# OpenWeatherMap 사이트에서 직접 발급받은 API 키 입력
+API_KEY = "Enter your API key here" 
+
+def tick1Min():
+    # 서울 지역 날씨 정보를 가져올 요청 주소 설정
+    url = f"https://api.openweathermap.org/data/2.5/weather?q=Seoul&appid={API_KEY}&units=metric"
+    
+    # 설정한 주소로 데이터 요청을 보냄
+    with urllib.request.urlopen(url) as r:
+        # 응답 데이터를 읽어와서 파이썬 객체 형태로 변환
+        data = json.loads(r.read())
+        
+        # 데이터 덩어리 중 'main' 안에 있는 온도랑 습도만 뽑아냄
+        temp = data["main"]["temp"]
+        humi = data["main"]["humidity"]
+        
+        # 소수점 한 자리까지 나오게 정리해서 라벨에 표시
+        label.config(text=f"{temp:.1f}C    {humi}%")
+        
+        # 1분(60,000ms)마다 정보를 갱신하도록 함수 예약
+        window.after(60000, tick1Min)
+
+# 메인 GUI 창 생성하기
+window = tkinter.Tk()
+# 창 상단에 보여줄 제목 설정
+window.title("TEMP HUMI DISPLAY")
+# 창의 전체 크기를 가로 400, 세로 100으로 지정
+window.geometry("400x100")
+# 창 크기를 마음대로 조절 못 하게 고정해둠
+window.resizable(False, False)
+# 화면에 잘 보이게 폰트 크기를 30으로 맞춤
+font = tkinter.font.Font(size=30)
+# 온도와 습도 값이 들어갈 라벨을 만들고 설정한 폰트 적용
+label = tkinter.Label(window, text="", font=font)
+# 만든 라벨을 화면 중앙에 배치함
+label.pack()
+
+# 프로그램 실행될 때 처음 한 번은 날씨 함수 강제 호출
+tick1Min()
+# 창이 꺼지지 않고 계속 실행 상태를 유지하게 함
+window.mainloop()
