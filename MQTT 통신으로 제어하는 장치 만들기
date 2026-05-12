@@ -1,0 +1,58 @@
+import paho.mqtt.client as mqtt        # MQTT 통신 프로토콜 사용을 위한 클라이언트 모듈 로드
+import time                            # 시간 지연(sleep) 기능을 사용하기 위한 모듈 로드
+from gpiozero import LED               # Raspberry Pi GPIO 핀 제어를 위한 LED 클래스 로드
+import threading                       # 메시지 수신과 발신을 동시에 처리하기 위한 멀티스레딩 모듈 로드
+
+# LED 객체 생성 (GPIO 핀 번호 설정)
+greenLed = LED(16)                     # GPIO 16번 핀에 연결된 초록색 LED 객체 생성
+blueLed = LED(20)                      # GPIO 20번 핀에 연결된 파란색 LED 객체 생성
+redLed = LED(21)                       # GPIO 21번 핀에 연결된 빨간색 LED 객체 생성
+
+# MQTT 메시지 수신 시 호출되는 콜백 함수 정의
+def on_message(client, userdata, msg): 
+    # 수신된 토픽명과 바이너리 형태의 데이터(payload)를 터미널에 출력
+    print(msg.topic + " " + str(msg.payload)) 
+    
+    # 수신된 바이트 데이터를 문자열로 디코딩 (예: b'green_on' -> 'green_on')
+    message = msg.payload.decode() 
+    print(message)                     # 디코딩된 문자열 메시지 출력
+    
+    # 수신된 메시지 내용에 따라 각 LED의 상태 제어
+    if message == "green_on":
+        greenLed.on()                  # 초록색 LED 점등
+    elif message == "green_off":
+        greenLed.off()                 # 초록색 LED 소등
+    elif message == "blue_on":
+        blueLed.on()                   # 파란색 LED 점등
+    elif message == "blue_off":
+        blueLed.off()                  # 파란색 LED 소등
+    elif message == "red_on":
+        redLed.on()                    # 빨간색 LED 점등
+    elif message == "red_off":
+        redLed.off()                   # 빨간색 LED 소등
+
+# MQTT 클라이언트 설정
+client = mqtt.Client()                 # 새로운 MQTT 클라이언트 인스턴스 생성
+client.on_message = on_message         # 메시지 수신 시 실행할 콜백 함수 등록
+
+# 브로커 연결 및 토픽 구독 설정
+broker_address = "192.168.137.230"     # 메시지를 중계할 MQTT 브로커(서버)의 IP 주소
+client.connect(broker_address)         # 설정된 IP 주소의 브로커에 접속 시도
+client.subscribe("led", 1)             # "led" 토픽을 구독하며, 서비스 품질(QoS)은 1단계로 설정
+
+# 자동 메시지 발행을 위한 변수 및 함수 정의
+count = 0                              # 데이터 카운팅을 위한 초기값 설정
+def send_thread():                     # 별도의 스레드에서 실행될 메시지 발행 함수
+    global count                       # 전역 변수 count를 함수 내에서 사용하도록 선언
+    while True:                        # 무한 루프 수행
+        count = count + 1              # 카운트 값을 1씩 증가
+        # "hello" 토픽으로 현재 카운트 값을 문자열로 변환하여 발행(Publish)
+        client.publish("hello", str(count)) 
+        time.sleep(1.0)                # 1초의 대기 시간을 가짐
+
+# 멀티스레드 실행 및 루프 시작
+task = threading.Thread(target=send_thread) # 메시지 발행 함수를 백그라운드 스레드로 설정
+task.start()                           # 스레드 시작 (메시지 구독과 발행이 동시에 진행됨)
+
+# 브로커로부터의 메시지 수신을 지속적으로 감시하는 루프 실행
+client.loop_forever()                  # 프로그램을 종료하지 않고 계속해서 MQTT 통신 유지
