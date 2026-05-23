@@ -1,0 +1,78 @@
+import cv2  # OpenCV 라이브러리 불러옴
+from gpiozero import Buzzer  # GPIO 부저 제어 클래스 가져옴
+import time  # 시간 관련 라이브러리 가져옴
+
+buzzerPin = Buzzer(16)  # GPIO 16번 핀에 부저 객체 생성
+
+
+def main():  # 메인 실행 함수 정의
+    camera = cv2.VideoCapture(-1)  # 웹캠 자동 탐색 후 연결
+    camera.set(3, 640)  # 가로 해상도를 640픽셀로 설정
+    camera.set(4, 480)  # 세로 해상도를 480픽셀로 설정
+
+    face_xml = (
+        cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+    )  # 얼굴 탐지 모델 경로 지정
+    eye_xml = (
+        cv2.data.haarcascades + "haarcascade_eye.xml"
+    )  # 눈 탐지 모델 경로 지정
+
+    face_cascade = cv2.CascadeClassifier(face_xml)  # 얼굴 탐지 분류기 생성
+    eye_cascade = cv2.CascadeClassifier(eye_xml)  # 눈 탐지 분류기 생성
+
+    while camera.isOpened():  # 웹캠이 작동하는 동안 무한 반복
+        _, image = camera.read()  # 카메라 프레임 이미지 읽어옴
+        gray = cv2.cvtColor(
+            image, cv2.COLOR_BGR2GRAY
+        )  # 연산 속도 향상을 위해 흑백 변환
+
+        faces = face_cascade.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(100, 100),
+            flags=cv2.CASCADE_SCALE_IMAGE,
+        )  # 흑백 이미지에서 얼굴 영역 탐지
+
+        print(
+            "faces detected Number: " + str(len(faces))
+        )  # 탐지된 얼굴 수를 터미널에 출력
+
+        if len(faces):  # 탐지된 얼굴이 1개 이상일 때 실행
+            for x, y, w, h in faces:  # 탐지된 얼굴들의 좌표 순회
+                cv2.rectangle(
+                    image, (x, y), (x + w, y + h), (255, 0, 0), 2
+                )  # 얼굴 위치에 파란색 사각형 그림
+
+                face_gray = gray[y : y + h, x : x + w]  # 얼굴 영역 흑백 추출
+                face_color = image[
+                    y : y + h, x : x + w
+                ]  # 얼굴 영역 컬러 추출
+
+                eyes = eye_cascade.detectMultiScale(
+                    face_gray, scaleFactor=1.1, minNeighbors=5
+                )  # 얼굴 영역에서 눈 탐지 수행
+
+                if (
+                    len(eyes) <= 1
+                ):  # 눈 탐지 수가 1개 이하이면 졸음으로 판단
+                    buzzerPin.on()  # 부저 켜서 경보음 출력
+                else:  # 눈 탐지 수가 2개 이상이면 정상 상태로 판단
+                    buzzerPin.off()  # 부저 끔
+
+                for ex, ey, ew, eh in eyes:  # 탐지된 눈들의 좌표 순회
+                    cv2.rectangle(
+                        face_color, (ex, ey), (ex + ew, ey + eh), (0, 255, 0), 2
+                    )  # 눈 위치에 초록색 사각형 그림
+
+        cv2.imshow("result", image)  # 최종 결과 영상을 GUI 창에 출력
+
+        if cv2.waitKey(1) == ord("q"):  # q 키 입력 시 루프 종료
+            break
+
+    cv2.destroyAllWindows()  # 모든 OpenCV 창 닫음
+    buzzerPin.off()  # 부저 강제 종료 및 초기화
+
+
+if __name__ == "__main__":  # 직접 실행 시 main 함수 호출
+    main()
