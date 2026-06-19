@@ -1,0 +1,48 @@
+from flask import Flask, request   # 웹 서버를 만들기 위한 Flask 기능을 가져옵니다.
+from gpiozero import LED           # 라즈베리파이의 핀을 제어하기 위해 LED 기능을 가져옵니다.
+import os                          # 컴퓨터 내부 온도를 명령어로 읽기 위해 가져옵니다.
+
+app = Flask(__name__)              # Flask 웹 프로그램을 생성합니다.
+red_led = LED(21)                  # 브레드보드에 꽂은 GPIO 21번 핀을 제어 대상으로 지정합니다.
+
+# 라즈베리파이 컴퓨터 내부의 현재 온도를 읽어서 가져오는 함수입니다.
+def get_sensor_data():
+    res = os.popen('vcgencmd measure_temp').readline()     # 장비 내부 온도를 재는 시스템 명령어를 실행합니다.
+    return res.replace("temp=", "").replace("'C\n", "")     # 글자 중에서 온도 숫자만 깔끔하게 남깁니다.
+
+@app.route('/')                    # 사용자가 인터넷 주소창에 내 IP 주소를 치고 접속했을 때 실행됩니다.
+def home():
+    sensor_value = get_sensor_data() # 위에 만들어 둔 함수를 실행해 실시간 장비 온도를 알아냅니다.
+    # 아래는 인터넷창 화면에 보여줄 글자와 버튼들을 디자인하는 HTML 코드입니다.
+    return f"""
+    <html>
+        <head>
+            <title> IoT System Monitor </title>
+            <meta charset="UTF-8">
+        </head>
+        <body>
+            <h1> 내장 센서 기반 IoT 원격 제어 시스템 </h1>
+            <p> <b>[실시간 모니터링]</b> 현재 장비 온도: <span style="color:blue; font-size:18px;">{sensor_value}</span> 'C </p>
+            <hr>
+            <form action="/data" method="post">
+                <input type="submit" name="led" value="on">
+                <input type="submit" name="led" value="off">
+            </form>
+        </body>
+    </html>
+    """
+
+@app.route('/data', methods = ['POST'])    # 사용자가 화면에서 on이나 off 버튼을 눌렀을 때 실행됩니다.
+def data():
+    data = request.form['led']             # 사용자가 어떤 버튼('on' 또는 'off')을 눌렀는지 정보를 가져옵니다.
+    
+    if(data == 'on'):                      # 만약 'on' 버튼을 눌렀다면 수행합니다.
+        red_led.on()                       # 라즈베리파이 21번 핀에 전기를 켜서 브레드보드 LED를 불타오르게 만듭니다.
+        
+    elif(data == 'off'):                   # 만약 'off' 버튼을 눌렀다면 수행합니다.
+        red_led.off()                      # 라즈베리파이 21번 핀에 전기를 차단하여 브레드보드 LED를 끕니다.
+        
+    return home()                          # 모든 처리가 끝나면 다시 첫 메인 화면으로 돌아갑니다.
+
+if __name__ == "__main__":
+    app.run(host = "0.0.0.0", port = "80")  # 모든 컴퓨터에서 내 라즈베리파이 웹서버에 접속할 수 있게 최종 시작합니다.
